@@ -26,6 +26,7 @@ interface IVerifier {
 
 abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     IVerifier public immutable verifier;
+    IHasher public immutable hasher;
     uint256 public denomination;
 
     mapping(bytes32 => bool) public nullifierHashes;
@@ -48,18 +49,23 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
         require(_denomination > 0, "denomination should be greater than 0");
         verifier = _verifier;
         denomination = _denomination;
+        hasher = _hasher;
     }
 
     /**
      * @dev Deposit funds into the contract. The caller must send (for ETH) or approve (for ERC20) value equal to or `denomination` of this instance.
-     * @param _commitment the note commitment, which is PedersenHash(nullifier + secret)
+     * @param _commitmentWithoutAmount the note commitment, which is PedersonHash(amount, PedersenHash(nullifier + secret))
      */
-    function deposit(bytes32 _commitment) external payable nonReentrant {
-        require(!commitments[_commitment], "The commitment has been submitted");
+    function deposit(bytes32 _commitmentWithoutAmount) external payable nonReentrant {
+        uint256 _amount = msg.value;
+        // TODO hash properly
+        bytes32 _commitment = hasher(_amount, _commitmentWithoutAmount);
 
+        require(!commitments[_commitment], "The commitment has been submitted");
+        
         uint32 insertedIndex = _insert(_commitment);
         commitments[_commitment] = true;
-        _processDeposit();
+        _processDeposit(_amount);
 
         emit Deposit(_commitment, insertedIndex, block.timestamp);
     }
@@ -67,7 +73,7 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     /**
      * @dev this function is defined in a child contract
      */
-    function _processDeposit() internal virtual;
+    function _processDeposit(uint256 _amount) internal virtual;
 
     /**
      * @dev Withdraw a deposit from the contract. `proof` is a zkSNARK proof data, and input is an array of circuit public inputs
@@ -86,7 +92,9 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
         address _recipient,
         address _relayer,
         uint256 _fee,
-        uint256 _refund
+        uint256 _refund,
+        uint256 _amount,
+        bytes32 _newCommitment
     ) external payable nonReentrant {
         require(_fee <= denomination, "Fee exceeds transfer value");
         require(!nullifierHashes[_nullifierHash], "The note has been already spent");
@@ -102,14 +110,21 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
                     uint256(uint160(_recipient)),
                     uint256(uint160(_relayer)),
                     _fee,
-                    _refund
+                    _refund,
+                    _amount,
+                    _newCommitment
                 ]
             ),
             "Invalid withdraw proof"
         );
 
         nullifierHashes[_nullifierHash] = true;
-        _processWithdraw(_recipient, _relayer, _fee, _refund);
+
+        // insert new leaf into the tree
+        uint32 insertedIndex = _insert(_newCommitment);
+        commitments[_newCommitment] = true;
+
+        _processWithdraw(_recipient, _relayer, _fee, _refund, _amount);
         emit Withdrawal(_recipient, _nullifierHash, _relayer, _fee);
     }
 

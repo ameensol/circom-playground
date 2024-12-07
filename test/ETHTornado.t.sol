@@ -59,6 +59,10 @@ contract ETHTornadoTest is Test {
         bytes32 _secret,
         address _recipient,
         address _relayer,
+        bytes32 _newNullifier,
+        bytes32 _newSecret,
+        uint256 _amountToWithdraw,
+        bytes32 _amountCommitted,
         bytes32[] memory leaves
     ) internal returns (uint256[2] memory, uint256[2][2] memory, uint256[2] memory, bytes32, bytes32) {
         string[] memory inputs = new string[](8 + leaves.length);
@@ -66,13 +70,17 @@ contract ETHTornadoTest is Test {
         inputs[1] = "forge-ffi-scripts/generateWitness.js";
         inputs[2] = vm.toString(_nullifier);
         inputs[3] = vm.toString(_secret);
-        inputs[4] = vm.toString(_recipient);
-        inputs[5] = vm.toString(_relayer);
-        inputs[6] = "0";
-        inputs[7] = "0";
+        inputs[4] = vm.toString(_relayer);
+        inputs[5] = "0"; // fee
+        inputs[6] = "0"; // refund
+        inputs[7] = vm.toString(_newNullifier);
+        inputs[8] = vm.toString(_newSecret);
+        inputs[9] = vm.toString(_amountToWithdraw);
+        inputs[10] = vm.toString(_amountCommitted);
+
 
         for (uint256 i = 0; i < leaves.length; i++) {
-            inputs[8 + i] = vm.toString(leaves[i]);
+            inputs[11 + i] = vm.toString(leaves[i]);
         }
 
         bytes memory result = vm.ffi(inputs);
@@ -82,11 +90,22 @@ contract ETHTornadoTest is Test {
         return (pA, pB, pC, root, nullifierHash);
     }
 
-    function _getCommitment() internal returns (bytes32 commitment, bytes32 nullifier, bytes32 secret) {
+    function _getCommitment(uint256 _amount) internal returns (bytes32 commitment, bytes32 nullifier, bytes32 secret) {
         string[] memory inputs = new string[](2);
         inputs[0] = "node";
         inputs[1] = "forge-ffi-scripts/generateCommitment.js";
+        inputs[2] = vm.toString(_amount);
+        bytes memory result = vm.ffi(inputs);
+        (commitment, nullifier, secret) = abi.decode(result, (bytes32, bytes32, bytes32));
 
+        return (commitment, nullifier, secret);
+    }
+
+    function _getNewCommitment(uint256 _amount) internal returns (bytes32 commitment, bytes32 nullifier, bytes32 secret) {
+        string[] memory inputs = new string[](2);
+        inputs[0] = "node";
+        inputs[1] = "forge-ffi-scripts/generateNewCommitment.js";
+        inputs[2] = vm.toString(_amount);
         bytes memory result = vm.ffi(inputs);
         (commitment, nullifier, secret) = abi.decode(result, (bytes32, bytes32, bytes32));
 
@@ -97,7 +116,12 @@ contract ETHTornadoTest is Test {
         // 1. Generate commitment and deposit
         (bytes32 commitment, bytes32 nullifier, bytes32 secret) = _getCommitment();
 
-        mixer.deposit{value: 1 ether}(commitment);
+        mixer.deposit{value: 2 ether}(commitment);
+
+        uint256 amountToWithdraw = 1 ether;
+
+        // 1.5 Generate new commitment
+        (bytes32 newCommitment, bytes32 newNullifier, bytes32 newSecret) = _getCommitment();
 
         // 2. Generate witness and proof.
         bytes32[] memory leaves = new bytes32[](1);
@@ -117,17 +141,19 @@ contract ETHTornadoTest is Test {
                     uint256(uint160(recipient)),
                     uint256(uint160(relayer)),
                     fee,
-                    refund
+                    refund,
+                    amountToWithdraw,
+                    newCommitment
                 ]
             )
         );
 
         // 4. Withdraw funds from the contract.
         assertEq(recipient.balance, 0);
-        assertEq(address(mixer).balance, 1 ether);
-        mixer.withdraw(pA, pB, pC, root, nullifierHash, recipient, relayer, fee, refund);
+        assertEq(address(mixer).balance, 2 ether);
+        mixer.withdraw(pA, pB, pC, root, nullifierHash, recipient, relayer, fee, refund, amountToWithdraw, newCommitment);
         assertEq(recipient.balance, 1 ether);
-        assertEq(address(mixer).balance, 0);
+        assertEq(address(mixer).balance, 1 ether);
     }
 
     function test_mixer_many_deposits() public {

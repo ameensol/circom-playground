@@ -14,13 +14,15 @@ pragma solidity ^0.8.0;
 
 import "./Tornado.sol";
 
+// TODO - remove denomination stuff
+
 contract ETHTornado is Tornado {
     constructor(IVerifier _verifier, IHasher _hasher, uint256 _denomination, uint32 _merkleTreeHeight)
         Tornado(_verifier, _hasher, _denomination, _merkleTreeHeight)
     {}
 
-    function _processDeposit() internal override {
-        require(msg.value == denomination, "Please send `mixDenomination` ETH along with transaction");
+    function _processDeposit(uint256 _amount) internal override {
+        require(msg.value == _amount, "Please send the correct amount");
     }
 
     function _processWithdraw(address _recipient, address _relayer, uint256 _fee, uint256 _refund) internal override {
