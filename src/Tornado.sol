@@ -73,7 +73,7 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     /**
      * @dev this function is defined in a child contract
      */
-    function _processDeposit(uint256 _amount) internal virtual;
+    function _processDeposit() internal virtual;
 
     /**
      * @dev Withdraw a deposit from the contract. `proof` is a zkSNARK proof data, and input is an array of circuit public inputs
@@ -131,7 +131,7 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     /**
      * @dev this function is defined in a child contract
      */
-    function _processWithdraw(address _recipient, address _relayer, uint256 _fee, uint256 _refund) internal virtual;
+    function _processWithdraw(address _recipient, address _relayer, uint256 _fee, uint256 _refund, uint256 _amount) internal virtual;
 
     /**
      * @dev whether a note is already spent

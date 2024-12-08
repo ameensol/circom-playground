@@ -17,20 +17,22 @@ import "./Tornado.sol";
 // TODO - remove denomination stuff
 
 contract ETHTornado is Tornado {
+    uint256 public constant MIN_DEPOSIT_AMOUNT = 0;
+
     constructor(IVerifier _verifier, IHasher _hasher, uint256 _denomination, uint32 _merkleTreeHeight)
         Tornado(_verifier, _hasher, _denomination, _merkleTreeHeight)
     {}
 
-    function _processDeposit(uint256 _amount) internal override {
-        require(msg.value == _amount, "Please send the correct amount");
+    function _processDeposit() internal override {
+        require(msg.value > MIN_DEPOSIT_AMOUNT, "Please send the correct amount");
     }
 
-    function _processWithdraw(address _recipient, address _relayer, uint256 _fee, uint256 _refund) internal override {
+    function _processWithdraw(address _recipient, address _relayer, uint256 _fee, uint256 _refund, uint256 _amount) internal override {
         // sanity checks
         require(msg.value == 0, "Message value is supposed to be zero for ETH instance");
         require(_refund == 0, "Refund value is supposed to be zero for ETH instance");
 
-        (bool success,) = _recipient.call{value: denomination - _fee}("");
+        (bool success,) = _recipient.call{value: _amount - _fee}("");
         require(success, "payment to _recipient did not go thru");
         if (_fee > 0) {
             (success,) = _relayer.call{value: _fee}("");
