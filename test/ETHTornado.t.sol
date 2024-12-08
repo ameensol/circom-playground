@@ -90,22 +90,10 @@ contract ETHTornadoTest is Test {
         return (pA, pB, pC, root, nullifierHash);
     }
 
-    // TODO - is this function still necessary?
     function _getCommitment(uint256 _amount) internal returns (bytes32 commitment, bytes32 nullifier, bytes32 secret) {
         string[] memory inputs = new string[](2);
         inputs[0] = "node";
         inputs[1] = "forge-ffi-scripts/generateCommitment.js";
-        inputs[2] = vm.toString(_amount);
-        bytes memory result = vm.ffi(inputs);
-        (commitment, nullifier, secret) = abi.decode(result, (bytes32, bytes32, bytes32));
-
-        return (commitment, nullifier, secret);
-    }
-
-    function _getNewCommitment(uint256 _amount) internal returns (bytes32 commitment, bytes32 nullifier, bytes32 secret) {
-        string[] memory inputs = new string[](2);
-        inputs[0] = "node";
-        inputs[1] = "forge-ffi-scripts/generateNewCommitment.js";
         inputs[2] = vm.toString(_amount);
         bytes memory result = vm.ffi(inputs);
         (commitment, nullifier, secret) = abi.decode(result, (bytes32, bytes32, bytes32));
