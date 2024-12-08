@@ -14,8 +14,6 @@ pragma solidity ^0.8.0;
 
 import "./Tornado.sol";
 
-// TODO - remove denomination stuff
-
 contract ETHTornado is Tornado {
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0;
 

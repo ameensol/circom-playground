@@ -10,6 +10,7 @@ async function main() {
   const inputs = process.argv.slice(2, process.argv.length);
 
   const amount = inputs[0];
+  const depositAddress = inputs[1];
 
   // 1. Generate random nullifier and secret
   const nullifier = rbigint(31);
@@ -27,6 +28,7 @@ async function main() {
 const commitment = await pedersenHash(
     Buffer.concat([
         leBigintToBuffer(amount, 31),
+        leBigintToBuffer(depositAddress, 31),
         commitmentWithoutAmount
     ])
 );

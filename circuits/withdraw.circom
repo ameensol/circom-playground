@@ -30,11 +30,12 @@ template CommitmentWithoutAmountHasher() {
 
 template CommitmentHasher() {
     signal input amount;
+    signal input depositAddress;
     signal input commitmentWithoutAmount;
     signal output commitment;
 
     // TODO hash properly
-    commitment <== hasher(amount, commitmentWithoutAmount);
+    commitment <== hasher(amount, depositAddress, commitmentWithoutAmount);
 }
 
 // Verifies that commitment that corresponds to given secret and nullifier is included in the merkle tree of deposits
@@ -51,6 +52,7 @@ template Withdraw(levels) {
     
     // Private inputs
     signal input committedAmount; // or balance
+    signal input depositAddress;
     signal input nullifier;
     signal input secret;
     signal input newNullifier;
@@ -66,6 +68,7 @@ template Withdraw(levels) {
     // verify existing commitment
     component hasher = CommitmentHasher();
     hasher.amount <== committedAmount;
+    hasher.depositAddress <== depositAddress;
     hasher.commitmentWithoutAmount <== hasherWithoutAmount.commitment;
 
     component tree = MerkleTreeChecker(levels);
@@ -109,6 +112,7 @@ template Withdraw(levels) {
 
     component newHasher = CommitmentHasher();
     newHasher.amount <== amountToWithdraw;
+    newHasher.depositAddress <== depositAddress;
     newHasher.commitmentWithoutAmount <== newHasherWithoutAmount.commitment;
     newCommitment === newHasher.commitment;
 

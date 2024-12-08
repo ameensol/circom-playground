@@ -48,7 +48,6 @@ contract ETHTornadoTest is Test {
          *
          * - verifier: Groth16 verifier
          * - hasher: MiMC hasher
-         * - denomination: 1 ETH
          * - merkleTreeHeight: 20
          */
         mixer = new ETHTornado(verifier, IHasher(mimcHasher), 1 ether, 20);
@@ -70,17 +69,18 @@ contract ETHTornadoTest is Test {
         inputs[1] = "forge-ffi-scripts/generateWitness.js";
         inputs[2] = vm.toString(_nullifier);
         inputs[3] = vm.toString(_secret);
-        inputs[4] = vm.toString(_relayer);
-        inputs[5] = "0"; // fee
-        inputs[6] = "0"; // refund
-        inputs[7] = vm.toString(_newNullifier);
-        inputs[8] = vm.toString(_newSecret);
-        inputs[9] = vm.toString(_amountToWithdraw);
-        inputs[10] = vm.toString(_amountCommitted);
-
-
+        inputs[4] = vm.toString(_recipient);
+        inputs[5] = vm.toString(_relayer);
+        inputs[6] = "0"; // fee
+        inputs[7] = "0"; // refund
+        inputs[8] = vm.toString(_newNullifier);
+        inputs[9] = vm.toString(_newSecret);
+        inputs[10] = vm.toString(_amountToWithdraw);
+        inputs[11] = vm.toString(_amountCommitted);
+        inputs[12] = vm.toString(this.address);
+    
         for (uint256 i = 0; i < leaves.length; i++) {
-            inputs[11 + i] = vm.toString(leaves[i]);
+            inputs[13 + i] = vm.toString(leaves[i]);
         }
 
         bytes memory result = vm.ffi(inputs);
@@ -95,6 +95,7 @@ contract ETHTornadoTest is Test {
         inputs[0] = "node";
         inputs[1] = "forge-ffi-scripts/generateCommitment.js";
         inputs[2] = vm.toString(_amount);
+        inputs[3] = vm.toString(this.address);
         bytes memory result = vm.ffi(inputs);
         (commitment, nullifier, secret) = abi.decode(result, (bytes32, bytes32, bytes32));
 
@@ -102,15 +103,16 @@ contract ETHTornadoTest is Test {
     }
 
     function test_mixer_single_deposit() public {
+        uint256 amountToDeposit = 2 ether;
         // 1. Generate commitment and deposit
-        (bytes32 commitment, bytes32 nullifier, bytes32 secret) = _getCommitment();
+        (bytes32 commitment, bytes32 nullifier, bytes32 secret) = _getCommitment(amountToDeposit);
 
-        mixer.deposit{value: 2 ether}(commitment);
+        mixer.deposit{value: amountToDeposit}(commitment);
 
         uint256 amountToWithdraw = 1 ether;
 
         // 1.5 Generate new commitment
-        (bytes32 newCommitment, bytes32 newNullifier, bytes32 newSecret) = _getCommitment();
+        (bytes32 newCommitment, bytes32 newNullifier, bytes32 newSecret) = _getCommitment(amountToWithdraw);
 
         // 2. Generate witness and proof.
         bytes32[] memory leaves = new bytes32[](1);
@@ -146,9 +148,10 @@ contract ETHTornadoTest is Test {
     }
 
     function test_mixer_many_deposits() public {
+        uint256 amountToDeposit = 2 ether;
         bytes32[] memory leaves = new bytes32[](200);
 
-        // 1. Make many deposits with random commitments -- this will let us test with a non-empty merkle tree
+        // 1. Make 100 deposits with random commitments -- this will let us test with a non-empty merkle tree
         for (uint256 i = 0; i < 100; i++) {
             bytes32 leaf = bytes32(uint256(keccak256(abi.encode(i))) % FIELD_SIZE);
 
@@ -159,7 +162,7 @@ contract ETHTornadoTest is Test {
         // 2. Generate commitment and deposit.
         (bytes32 commitment, bytes32 nullifier, bytes32 secret) = _getCommitment();
 
-        mixer.deposit{value: 1 ether}(commitment);
+        mixer.deposit{value: amountToDeposit}(commitment);
         leaves[100] = commitment;
 
         // 3. Make more deposits.
@@ -171,8 +174,11 @@ contract ETHTornadoTest is Test {
         }
 
         // 4. Generate witness and proof.
+        uint256 amountToWithdraw = 2 ether;
+        (bytes32 newCommitment, bytes32 newNullifier, bytes32 newSecret) = _getCommitment(amountToWithdraw);
+
         (uint256[2] memory pA, uint256[2][2] memory pB, uint256[2] memory pC, bytes32 root, bytes32 nullifierHash) =
-            _getWitnessAndProof(nullifier, secret, recipient, relayer, leaves);
+            _getWitnessAndProof(nullifier, secret, recipient, relayer, leaves, newNullifier, newSecret, amountToWithdraw, newCommitment);
 
         // 5. Verify proof against the verifier contract.
         assertTrue(
@@ -186,16 +192,18 @@ contract ETHTornadoTest is Test {
                     uint256(uint160(recipient)),
                     uint256(uint160(relayer)),
                     fee,
-                    refund
+                    refund,
+                    amountToWithdraw,
+                    newCommitment
                 ]
             )
         );
 
         // 6. Withdraw funds from the contract.
         assertEq(recipient.balance, 0);
-        assertEq(address(mixer).balance, 200 ether);
-        mixer.withdraw(pA, pB, pC, root, nullifierHash, recipient, relayer, fee, refund);
-        assertEq(recipient.balance, 1 ether);
+        assertEq(address(mixer).balance, 201 ether);
+        mixer.withdraw(pA, pB, pC, root, nullifierHash, recipient, relayer, fee, refund, amountToWithdraw, newCommitment);
+        assertEq(recipient.balance, 2 ether);
         assertEq(address(mixer).balance, 199 ether);
     }
 }

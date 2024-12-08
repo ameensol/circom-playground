@@ -54,12 +54,12 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
 
     /**
      * @dev Deposit funds into the contract. The caller must send (for ETH) or approve (for ERC20) value equal to or `denomination` of this instance.
-     * @param _commitmentWithoutAmount the note commitment, which is PedersonHash(amount, PedersenHash(nullifier + secret))
+     * @param _commitmentWithoutAmount the note commitment, which is PedersonHash(amount, depositAddress, PedersenHash(nullifier + secret))
      */
     function deposit(bytes32 _commitmentWithoutAmount) external payable nonReentrant {
         uint256 _amount = msg.value;
         // TODO hash properly
-        bytes32 _commitment = hasher(_amount, _commitmentWithoutAmount);
+        bytes32 _commitment = hasher(_amount, msg.sender,_commitmentWithoutAmount);
 
         require(!commitments[_commitment], "The commitment has been submitted");
         

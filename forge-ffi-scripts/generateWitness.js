@@ -23,8 +23,8 @@ async function main() {
   const secret = hexToBigint(inputs[1]);
 
   // 1.5 Get nullifier and secret
-  const newNullifier = hexToBigint(inputs[0]);
-  const newSecret = hexToBigint(inputs[1]);
+  const newNullifier = hexToBigint(inputs[5]);
+  const newSecret = hexToBigint(inputs[6]);
 
   // 2. Get nullifier hash
   const nullifierHash = await pedersenHash(leBigintToBuffer(nullifier, 31));
@@ -42,7 +42,12 @@ async function main() {
   );
   const merkleProof = tree.proof(commitment);
 
-  
+  const newCommitment = await pedersenHash(
+    Buffer.concat([
+      leBigintToBuffer(newNullifier, 31),
+      leBigintToBuffer(newSecret, 31),
+    ])
+  );
 
   // 4. Format witness input to exactly match circuit expectations
   const input = {
@@ -53,11 +58,12 @@ async function main() {
     relayer: hexToBigint(inputs[3]),
     fee: BigInt(inputs[4]),
     refund: BigInt(inputs[5]),
-    amountToWithdraw: BigInt(inputs[6]),
-    newCommitment: hexToBigint(inputs[7]),
+    amountToWithdraw: BigInt(inputs[8]),
+    newCommitment: newCommitment,
 
     // Private inputs
-    committedAmount: hexToBigint(inputs[8]),
+    committedAmount: hexToBigint(inputs[9]),
+    depositAddress: hexToBigint(inputs[10]),
     nullifier: nullifier,
     secret: secret,
     newNullifier: newNullifier,
@@ -67,14 +73,11 @@ async function main() {
   };
 
   // 5. Create groth16 proof for witness
-  const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+  const { proof } = await snarkjs.groth16.fullProve(
     input,
     path.join(__dirname, "../circuit_artifacts/withdraw_js/withdraw.wasm"),
     path.join(__dirname, "../circuit_artifacts/withdraw_final.zkey")
   );
-
-  // TODO make sure the newCommitment output is actually the correct index
-  const newCommitment = publicSignals[0];
 
   const pA = proof.pi_a.slice(0, 2);
   const pB = proof.pi_b.slice(0, 2);
