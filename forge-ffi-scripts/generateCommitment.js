@@ -1,6 +1,6 @@
 const { ethers } = require("ethers");
-const { pedersenHash } = require("./utils/pedersen.js");
-const { rbigint, bigintToHex, leBigintToBuffer } = require("./utils/bigint.js");
+const { poseidonHash } = require("./utils/poseidon.js");
+const { rbigint, bigintToHex } = require("./utils/bigint.js");
 
 // Intended output: (bytes32 commitment, bytes32 nullifier, bytes32 secret)
 
@@ -12,12 +12,7 @@ async function main() {
   const secret = rbigint(31);
 
   // 2. Get commitment
-  const commitment = await pedersenHash(
-    Buffer.concat([
-      leBigintToBuffer(nullifier, 31),
-      leBigintToBuffer(secret, 31),
-    ])
-  );
+  const commitment = await poseidonHash([nullifier, secret])
 
   // 3. Return abi encoded nullifier, secret, commitment
   const res = ethers.AbiCoder.defaultAbiCoder().encode(
