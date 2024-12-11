@@ -1,31 +1,24 @@
 pragma circom 2.2.0;
 
-include "../node_modules/circomlib/circuits/bitify.circom";
-include "../node_modules/circomlib/circuits/comparators.circom";
-include "../node_modules/circomlib/circuits/pedersen.circom";
+include "../node_modules/circomlib/circuits/poseidon.circom";
 include "./merkleTree.circom";
 
-// computes Pedersen(OG commitment + nullifier + secret)
+// computes Poseidon(nullifier + secret)
 template CommitmentWithoutAmountHasher() {
     signal input nullifier;
     signal input secret;
     signal output commitment;
     signal output nullifierHash;
 
-    component commitmentHasher = Pedersen(496);
-    component nullifierHasher = Pedersen(248);
-    component nullifierBits = Num2Bits(248);
-    component secretBits = Num2Bits(248);
-    nullifierBits.in <== nullifier;
-    secretBits.in <== secret;
-    for (var i = 0; i < 248; i++) {
-        nullifierHasher.in[i] <== nullifierBits.out[i];
-        commitmentHasher.in[i] <== nullifierBits.out[i];
-        commitmentHasher.in[i + 248] <== secretBits.out[i];
-    }
+    component commitmentHasher = Poseidon(2);
+    commitmentHasher.inputs[0] <== nullifier;
+    commitmentHasher.inputs[1] <== secret;
 
-    commitment <== commitmentHasher.out[0];
-    nullifierHash <== nullifierHasher.out[0];
+    component nullifierHasher = Poseidon(1);
+    nullifierHasher.inputs[0] <== nullifier;
+
+    commitment <== commitmentHasher.out;
+    nullifierHash <== nullifierHasher.out;
 }
 
 template CommitmentHasher() {
@@ -34,10 +27,12 @@ template CommitmentHasher() {
     signal input commitmentWithoutAmount;
     signal output commitment;
 
-    // TODO hash properly
-    commitment <== hasher(amount, depositAddress, commitmentWithoutAmount);
+    component commitmentHasher = Poseidon(3);
+    commitmentHasher.inputs[0] <== amount;
+    commitmentHasher.inputs[1] <== depositAddress;
+    commitmentHasher.inputs[2] <== commitmentWithoutAmount;
+    commitment <== commitmentHasher.out;
 }
-
 // Verifies that commitment that corresponds to given secret and nullifier is included in the merkle tree of deposits
 template Withdraw(levels) {
     // Public inputs
@@ -50,9 +45,6 @@ template Withdraw(levels) {
     signal input fee;      // not taking part in any computations
     signal input refund;   // not taking part in any computations
     
-    // Private inputs
-    signal input committedAmount; // or balance
-    signal input depositAddress;
     signal input nullifier;
     signal input secret;
     signal input newNullifier;

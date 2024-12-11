@@ -8,7 +8,7 @@ const {
   leBigintToBuffer,
 } = require("./utils/bigint.js");
 
-const { pedersenHash } = require("./utils/pedersen.js");
+const { poseidonHash } = require("./utils/poseidon.js");
 const { mimicMerkleTree } = require("./utils/mimcMerkleTree.js");
 
 // Intended output: (uint256[2] memory pA, uint256[2][2] memory pB, uint256[2] memory pC, bytes32 root, bytes32 nullifierHash)
@@ -27,19 +27,14 @@ async function main() {
   const newSecret = hexToBigint(inputs[6]);
 
   // 2. Get nullifier hash
-  const nullifierHash = await pedersenHash(leBigintToBuffer(nullifier, 31));
+  const nullifierHash = await poseidonHash([nullifier]);
 
   // 3. Create merkle tree, insert leaves and get merkle proof for commitment
   const leaves = inputs.slice(6, inputs.length).map((l) => hexToBigint(l));
 
   const tree = await mimicMerkleTree(leaves);
 
-  const commitment = await pedersenHash(
-    Buffer.concat([
-      leBigintToBuffer(nullifier, 31),
-      leBigintToBuffer(secret, 31),
-    ])
-  );
+  const commitment = await poseidonHash([nullifier, secret]);
   const merkleProof = tree.proof(commitment);
 
   const newCommitment = await pedersenHash(

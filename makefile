@@ -21,6 +21,10 @@ ptau:
 	snarkjs powersoftau contribute pot16_0000.ptau pot16_0001.ptau --name="First contribution" -v && \
 	snarkjs powersoftau prepare phase2 pot16_0001.ptau pot16_final.ptau -v
 
+phase2:
+	@echo "ONLY Performing phase 2 of powers of tau ceremony..."
+	snarkjs powersoftau prepare phase2 pot16_0001.ptau pot16_final.ptau -v
+
 # Generate zkey and verifier contract
 gen_verifier:
 	cd $(ARTIFACTS_DIR) && \
