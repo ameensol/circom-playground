@@ -5,7 +5,7 @@ include "../node_modules/circomlib/circuits/comparators.circom";
 include "../node_modules/circomlib/circuits/pedersen.circom";
 include "./merkleTree.circom";
 
-// computes Pedersen(nullifier + secret)
+// computes Pedersen(OG commitment + nullifier + secret)
 template CommitmentWithoutAmountHasher() {
     signal input nullifier;
     signal input secret;

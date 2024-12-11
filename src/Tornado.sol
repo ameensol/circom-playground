@@ -26,7 +26,7 @@ interface IVerifier {
 
 abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     IVerifier public immutable verifier;
-    IHasher public immutable hasher;
+    IHasher public immutable override hasher;
     uint256 public denomination;
 
     mapping(bytes32 => bool) public nullifierHashes;
@@ -56,16 +56,14 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
      * @dev Deposit funds into the contract. The caller must send (for ETH) or approve (for ERC20) value equal to or `denomination` of this instance.
      * @param _commitmentWithoutAmount the note commitment, which is PedersonHash(amount, depositAddress, PedersenHash(nullifier + secret))
      */
-    function deposit(bytes32 _commitmentWithoutAmount) external payable nonReentrant {
-        uint256 _amount = msg.value;
-        // TODO hash properly
-        bytes32 _commitment = hasher(_amount, msg.sender,_commitmentWithoutAmount);
+-    function deposit(bytes32 _commitmentWithoutAmount) external payable nonReentrant {
+-        uint256 _amount = msg.value;
+-        // TODO hash properly
+-        bytes32 _commitment = hasher(_amount, msg.sender,_commitmentWithoutAmount);
 
-        require(!commitments[_commitment], "The commitment has been submitted");
-        
         uint32 insertedIndex = _insert(_commitment);
         commitments[_commitment] = true;
-        _processDeposit(_amount);
+        _processDeposit();
 
         emit Deposit(_commitment, insertedIndex, block.timestamp);
     }
@@ -92,9 +90,9 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
         address _recipient,
         address _relayer,
         uint256 _fee,
-        uint256 _refund,
         uint256 _amount,
-        bytes32 _newCommitment
+        bytes32 _newCommitment,
+        uint256 _refund
     ) external payable nonReentrant {
         require(_fee <= denomination, "Fee exceeds transfer value");
         require(!nullifierHashes[_nullifierHash], "The note has been already spent");
@@ -110,20 +108,15 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
                     uint256(uint160(_recipient)),
                     uint256(uint160(_relayer)),
                     _fee,
-                    _refund,
                     _amount,
-                    _newCommitment
+                    _newCommitment,
+                    _refund
                 ]
             ),
             "Invalid withdraw proof"
         );
 
         nullifierHashes[_nullifierHash] = true;
-
-        // insert new leaf into the tree
-        uint32 insertedIndex = _insert(_newCommitment);
-        commitments[_newCommitment] = true;
-
         _processWithdraw(_recipient, _relayer, _fee, _refund, _amount);
         emit Withdrawal(_recipient, _nullifierHash, _relayer, _fee);
     }
