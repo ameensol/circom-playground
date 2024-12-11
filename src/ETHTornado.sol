@@ -17,8 +17,8 @@ import "./Tornado.sol";
 contract ETHTornado is Tornado {
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0;
 
-    constructor(IVerifier _verifier, IHasher _hasher, uint256 _denomination, uint32 _merkleTreeHeight)
-        Tornado(_verifier, _hasher, _denomination, _merkleTreeHeight)
+    constructor(IVerifier _verifier, IHasher _mimcHasher, IPoseidonHasher _poseidonHasher, uint256 _denomination, uint32 _merkleTreeHeight)
+        Tornado(_verifier, _mimcHasher, _poseidonHasher, _denomination, _merkleTreeHeight)
     {}
 
     function _processDeposit() internal override {

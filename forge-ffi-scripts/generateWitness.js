@@ -18,47 +18,52 @@ const { mimicMerkleTree } = require("./utils/mimcMerkleTree.js");
 async function main() {
   const inputs = process.argv.slice(2, process.argv.length);
 
-  // 1. Get nullifier and secret
+  // 1. Get nullifier and secret and stuff
   const nullifier = hexToBigint(inputs[0]);
   const secret = hexToBigint(inputs[1]);
+  const recipient = hexToBigint(inputs[2]);
+  const relayer = hexToBigint(inputs[3]);
+  const fee = BigInt(inputs[4]);
+  const refund = BigInt(inputs[5]);
+  const newNullifier = hexToBigint(inputs[6]);
+  const newSecret = hexToBigint(inputs[7]);
+  const amountToWithdraw = BigInt(inputs[8]);
+  const amountCommitted = BigInt(inputs[9]);
+  const depositAddress = hexToBigint(inputs[10]);
 
-  // 1.5 Get nullifier and secret
-  const newNullifier = hexToBigint(inputs[5]);
-  const newSecret = hexToBigint(inputs[6]);
 
   // 2. Get nullifier hash
   const nullifierHash = await poseidonHash([nullifier]);
 
   // 3. Create merkle tree, insert leaves and get merkle proof for commitment
-  const leaves = inputs.slice(6, inputs.length).map((l) => hexToBigint(l));
+  const leaves = inputs.slice(11, inputs.length).map((l) => hexToBigint(l));
 
   const tree = await mimicMerkleTree(leaves);
 
-  const commitment = await poseidonHash([nullifier, secret]);
+  const commitmentWithoutAmount = await poseidonHash([nullifier, secret]);
+  const commitment = await poseidonHash([amountCommitted, depositAddress, commitmentWithoutAmount]);
   const merkleProof = tree.proof(commitment);
 
-  const newCommitment = await pedersenHash(
-    Buffer.concat([
-      leBigintToBuffer(newNullifier, 31),
-      leBigintToBuffer(newSecret, 31),
-    ])
-  );
+  const newAmount = amountCommitted - (amountToWithdraw + fee + refund);
+
+  const newCommitmentWithoutAmount = await poseidonHash([newNullifier, newSecret]);
+  const newCommitment = await poseidonHash([newAmount, depositAddress, newCommitmentWithoutAmount]);
 
   // 4. Format witness input to exactly match circuit expectations
   const input = {
     // Public inputs
     root: merkleProof.pathRoot,
     nullifierHash: nullifierHash,
-    recipient: hexToBigint(inputs[2]),
-    relayer: hexToBigint(inputs[3]),
-    fee: BigInt(inputs[4]),
-    refund: BigInt(inputs[5]),
-    amountToWithdraw: BigInt(inputs[8]),
+    recipient: recipient,
+    relayer: relayer,
+    fee: fee,
+    refund: refund,
+    amountToWithdraw: amountToWithdraw,
     newCommitment: newCommitment,
 
     // Private inputs
-    committedAmount: hexToBigint(inputs[9]),
-    depositAddress: hexToBigint(inputs[10]),
+    committedAmount: amountCommitted,
+    depositAddress: depositAddress,
     nullifier: nullifier,
     secret: secret,
     newNullifier: newNullifier,

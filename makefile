@@ -23,6 +23,7 @@ ptau:
 
 phase2:
 	@echo "ONLY Performing phase 2 of powers of tau ceremony..."
+	cd $(ARTIFACTS_DIR) && \
 	snarkjs powersoftau prepare phase2 pot16_0001.ptau pot16_final.ptau -v
 
 # Generate zkey and verifier contract

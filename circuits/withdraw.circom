@@ -1,7 +1,12 @@
 pragma circom 2.2.0;
 
 include "../node_modules/circomlib/circuits/poseidon.circom";
+include "../node_modules/circomlib/circuits/comparators.circom";
 include "./merkleTree.circom";
+
+// Commitment: Poseidon(amount, depositAddress, Poseidon(nullifier + secret))
+// Future Commitment: Poseidon(amount, depositAddress, OG_commitment, Poseidon(nullifier, secret))
+// 1st deposit -> null 
 
 // computes Poseidon(nullifier + secret)
 template CommitmentWithoutAmountHasher() {
@@ -45,6 +50,8 @@ template Withdraw(levels) {
     signal input fee;      // not taking part in any computations
     signal input refund;   // not taking part in any computations
     
+    signal input committedAmount;
+    signal input depositAddress;
     signal input nullifier;
     signal input secret;
     signal input newNullifier;
@@ -96,7 +103,7 @@ template Withdraw(levels) {
     refundAmountChecker.out === 1; // true that refund amount is less than committed amount
 
     // verify that new amount is less than committed amount (overflow protection)
-    signal newAmount = committedAmount - amountToWithdraw - fee - refund;
+    signal newAmount <== committedAmount - (amountToWithdraw + fee + refund);
     component amountChecker = LessThan(248); // TODO check that all deposits are less than 2^248 at smart contract level - lol
     amountChecker.in[0] <== newAmount;
     amountChecker.in[1] <== committedAmount;
@@ -121,4 +128,4 @@ template Withdraw(levels) {
     refundSquare <== refund * refund;
 }
 
-component main {public [root, nullifierHash, recipient, relayer, fee, refund]} = Withdraw(20);
+component main {public [root, nullifierHash, amountToWithdraw, newCommitment, recipient, relayer, fee, refund]} = Withdraw(20);

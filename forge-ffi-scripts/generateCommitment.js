@@ -17,12 +17,13 @@ async function main() {
   const secret = rbigint(31);
 
   // 2. Get commitment
-  const commitment = await poseidonHash([nullifier, secret])
+  const commitmentWithoutAmount = await poseidonHash([nullifier, secret])
+  const commitment = await poseidonHash([amount, depositAddress, commitmentWithoutAmount])
 
   // 3. Return abi encoded nullifier, secret, commitment
   const res = ethers.AbiCoder.defaultAbiCoder().encode(
-    ["bytes32", "bytes32", "bytes32"],
-    [bigintToHex(commitment), bigintToHex(nullifier), bigintToHex(secret)]
+    ["uint256", "bytes32", "bytes32"],
+    [commitment, bigintToHex(nullifier), bigintToHex(secret)]
   );
 
   return res;

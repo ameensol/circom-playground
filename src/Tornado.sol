@@ -20,50 +20,53 @@ interface IVerifier {
         uint256[2] calldata _pA,
         uint256[2][2] calldata _pB,
         uint256[2] calldata _pC,
-        uint256[6] calldata _pubSignals
+        uint256[8] calldata _pubSignals
     ) external view returns (bool);
+}
+
+interface IPoseidonHasher {
+    function poseidon(uint256[3] calldata) external pure returns (uint256);
 }
 
 abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     IVerifier public immutable verifier;
-    IHasher public immutable override hasher;
+    IPoseidonHasher public immutable poseidonHasher;
     uint256 public denomination;
 
     mapping(bytes32 => bool) public nullifierHashes;
     // we store all commitments just to prevent accidental deposits with the same commitment
     mapping(bytes32 => bool) public commitments;
 
-    event Deposit(bytes32 indexed commitment, uint32 leafIndex, uint256 timestamp);
+    event Deposit(uint256 indexed commitment, uint32 leafIndex, uint256 timestamp);
     event Withdrawal(address to, bytes32 nullifierHash, address indexed relayer, uint256 fee);
 
     /**
      * @dev The constructor
      * @param _verifier the address of SNARK verifier for this contract
-     * @param _hasher the address of MiMC hash contract
+     * @param _mimcHasher the address of MiMC hash contract
+     * @param _poseidonHasher the address of Poseidon hash contract
      * @param _denomination transfer amount for each deposit
      * @param _merkleTreeHeight the height of deposits' Merkle Tree
      */
-    constructor(IVerifier _verifier, IHasher _hasher, uint256 _denomination, uint32 _merkleTreeHeight)
-        MerkleTreeWithHistory(_merkleTreeHeight, _hasher)
+    constructor(IVerifier _verifier, IHasher _mimcHasher, IPoseidonHasher _poseidonHasher, uint256 _denomination, uint32 _merkleTreeHeight)
+        MerkleTreeWithHistory(_merkleTreeHeight, _mimcHasher)
     {
         require(_denomination > 0, "denomination should be greater than 0");
         verifier = _verifier;
         denomination = _denomination;
-        hasher = _hasher;
+        poseidonHasher = _poseidonHasher;
     }
 
     /**
      * @dev Deposit funds into the contract. The caller must send (for ETH) or approve (for ERC20) value equal to or `denomination` of this instance.
-     * @param _commitmentWithoutAmount the note commitment, which is PedersonHash(amount, depositAddress, PedersenHash(nullifier + secret))
-     * @param _commitment the note commitment, which is Poseidon(nullifier + secret)
+     * @param _commitmentWithoutAmount the note commitment, which is PoseidonHash(amount, depositAddress, PoseidonHash(nullifier + secret))
      */
--    function deposit(bytes32 _commitmentWithoutAmount) external payable nonReentrant {
--        uint256 _amount = msg.value;
--        // TODO hash properly
--        bytes32 _commitment = hasher(_amount, msg.sender,_commitmentWithoutAmount);
+    function deposit(uint256 _commitmentWithoutAmount) external payable nonReentrant {
+        uint256 _amount = msg.value;
+        uint256 _commitment = poseidonHasher.poseidon([_amount, uint256(uint160(msg.sender)), _commitmentWithoutAmount]);
 
-        uint32 insertedIndex = _insert(_commitment);
-        commitments[_commitment] = true;
+        uint32 insertedIndex = _insert(bytes32(_commitment));
+        commitments[bytes32(_commitment)] = true;
         _processDeposit();
 
         emit Deposit(_commitment, insertedIndex, block.timestamp);
@@ -92,7 +95,7 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
         address _relayer,
         uint256 _fee,
         uint256 _amount,
-        bytes32 _newCommitment,
+        uint256 _newCommitment,
         uint256 _refund
     ) external payable nonReentrant {
         require(_fee <= denomination, "Fee exceeds transfer value");
