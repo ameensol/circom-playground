@@ -22,8 +22,8 @@ async function main() {
 
   // 3. Return abi encoded nullifier, secret, commitment
   const res = ethers.AbiCoder.defaultAbiCoder().encode(
-    ["uint256", "bytes32", "bytes32"],
-    [commitment, bigintToHex(nullifier), bigintToHex(secret)]
+    ["uint256", "uint256", "bytes32", "bytes32"],
+    [commitmentWithoutAmount, commitment, bigintToHex(nullifier), bigintToHex(secret)]
   );
 
   return res;

@@ -82,7 +82,6 @@ template Withdraw(levels) {
     component newHasherWithoutAmount = CommitmentWithoutAmountHasher();
     newHasherWithoutAmount.nullifier <== newNullifier;
     newHasherWithoutAmount.secret <== newSecret;
-    newHasherWithoutAmount.nullifierHash === nullifierHash;
 
     // verify that withdrawal amount is less than committed amount (overflow protection)
     component withdrawalAmountChecker = LessThan(248); // TODO check that all deposits are less than 2^248 at smart contract level - lol

@@ -5,7 +5,6 @@ const { ethers } = require("ethers");
 const {
   hexToBigint,
   bigintToHex,
-  leBigintToBuffer,
 } = require("./utils/bigint.js");
 
 const { poseidonHash } = require("./utils/poseidon.js");
@@ -21,33 +20,35 @@ async function main() {
   // 1. Get nullifier and secret and stuff
   const nullifier = hexToBigint(inputs[0]);
   const secret = hexToBigint(inputs[1]);
-  const recipient = hexToBigint(inputs[2]);
-  const relayer = hexToBigint(inputs[3]);
-  const fee = BigInt(inputs[4]);
-  const refund = BigInt(inputs[5]);
-  const newNullifier = hexToBigint(inputs[6]);
-  const newSecret = hexToBigint(inputs[7]);
-  const amountToWithdraw = BigInt(inputs[8]);
-  const amountCommitted = BigInt(inputs[9]);
+  const amountCommitted = BigInt(inputs[2]);
+  const recipient = hexToBigint(inputs[3]);
+  const relayer = hexToBigint(inputs[4]);
+  const fee = BigInt(inputs[5]);
+  const refund = BigInt(inputs[6]);
+  const newNullifier = hexToBigint(inputs[7]);
+  const newSecret = hexToBigint(inputs[8]);
+  const amountToWithdraw = BigInt(inputs[9]);
   const depositAddress = hexToBigint(inputs[10]);
-
 
   // 2. Get nullifier hash
   const nullifierHash = await poseidonHash([nullifier]);
 
   // 3. Create merkle tree, insert leaves and get merkle proof for commitment
-  const leaves = inputs.slice(11, inputs.length).map((l) => hexToBigint(l));
+  const leaves = inputs.slice(11, inputs.length).map((l) => BigInt(l));
+
+  console.log("leaves", leaves);
 
   const tree = await mimicMerkleTree(leaves);
 
   const commitmentWithoutAmount = await poseidonHash([nullifier, secret]);
   const commitment = await poseidonHash([amountCommitted, depositAddress, commitmentWithoutAmount]);
+  console.log("commitment", commitment)
+
   const merkleProof = tree.proof(commitment);
 
-  const newAmount = amountCommitted - (amountToWithdraw + fee + refund);
-
+  const newAmountToDeposit = amountCommitted - (amountToWithdraw + fee + refund);
   const newCommitmentWithoutAmount = await poseidonHash([newNullifier, newSecret]);
-  const newCommitment = await poseidonHash([newAmount, depositAddress, newCommitmentWithoutAmount]);
+  const newCommitment = await poseidonHash([newAmountToDeposit, depositAddress, newCommitmentWithoutAmount]);
 
   // 4. Format witness input to exactly match circuit expectations
   const input = {

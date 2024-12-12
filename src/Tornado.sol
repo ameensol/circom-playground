@@ -29,6 +29,8 @@ interface IPoseidonHasher {
 }
 
 abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
+    uint256 public TEST_COMMITMENT = 0x0000000000000000000000000000000000000000000000000000000000000000;
+
     IVerifier public immutable verifier;
     IPoseidonHasher public immutable poseidonHasher;
     uint256 public denomination;
@@ -37,7 +39,7 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
     // we store all commitments just to prevent accidental deposits with the same commitment
     mapping(bytes32 => bool) public commitments;
 
-    event Deposit(uint256 indexed commitment, uint32 leafIndex, uint256 timestamp);
+    event Deposit(address indexed sender, uint256 amount, uint256 indexed commitment, uint32 leafIndex, uint256 timestamp);
     event Withdrawal(address to, bytes32 nullifierHash, address indexed relayer, uint256 fee);
 
     /**
@@ -62,14 +64,15 @@ abstract contract Tornado is MerkleTreeWithHistory, ReentrancyGuard {
      * @param _commitmentWithoutAmount the note commitment, which is PoseidonHash(amount, depositAddress, PoseidonHash(nullifier + secret))
      */
     function deposit(uint256 _commitmentWithoutAmount) external payable nonReentrant {
-        uint256 _amount = msg.value;
-        uint256 _commitment = poseidonHasher.poseidon([_amount, uint256(uint160(msg.sender)), _commitmentWithoutAmount]);
+        uint256 commitment = poseidonHasher.poseidon([msg.value, uint256(uint160(msg.sender)), _commitmentWithoutAmount]);
 
-        uint32 insertedIndex = _insert(bytes32(_commitment));
-        commitments[bytes32(_commitment)] = true;
+        TEST_COMMITMENT = commitment;
+
+        uint32 insertedIndex = _insert(bytes32(commitment));
+        commitments[bytes32(commitment)] = true;
         _processDeposit();
 
-        emit Deposit(_commitment, insertedIndex, block.timestamp);
+        emit Deposit(msg.sender, msg.value, commitment, insertedIndex, block.timestamp);
     }
 
     /**
