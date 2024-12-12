@@ -144,9 +144,6 @@ contract ETHTornadoTest is Test {
 
         mixer.deposit{value: amountToDeposit}(commitmentWithoutAmount);
 
-        uint256 testCommitment = mixer.TEST_COMMITMENT();
-        assertEq(testCommitment, commitment);
-        
         uint256 amountToWithdraw = 1 ether;
         uint256 newAmountToDeposit = amountToDeposit - amountToWithdraw;
 

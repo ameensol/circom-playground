@@ -50,6 +50,8 @@ async function main() {
   const newCommitmentWithoutAmount = await poseidonHash([newNullifier, newSecret]);
   const newCommitment = await poseidonHash([newAmountToDeposit, depositAddress, newCommitmentWithoutAmount]);
 
+  console.log("root", merkleProof.pathRoot);
+
   // 4. Format witness input to exactly match circuit expectations
   const input = {
     // Public inputs
